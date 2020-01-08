@@ -16,7 +16,7 @@ app.use(helmet())
 app.use(cors())
 
  
-app.use('/articles', articlesRouter)
+app.use('/api/articles', articlesRouter)
 app.use(errorHandler)
 
 module.exports = app
