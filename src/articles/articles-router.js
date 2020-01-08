@@ -55,4 +55,10 @@ articlesRouter.route('/:article_id').get((req, res, next) => {
       .catch(next)
 })
 
+articlesRouter.route('/:article_id').delete((req, res, next) => {
+   ArticlesService.deleteArticle(req.app.get('db'), req.params.article_id)
+      .then( () => res.status(204).end())
+      .catch(next)
+})
+
 module.exports = articlesRouter

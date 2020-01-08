@@ -53,32 +53,34 @@ describe('Articles Endpoints', function() {
          })
       })
 
-       describe.only(`GET /articles/:article_id`, () => {
+      describe(`GET /articles/:article_id`, () => {
+         context(`Given an XSS attack article`, () => {
+            const maliciousArticle = {
+               id: 911,
+               title:
+                  'Naughty naughty very naughty <script>alert("xss");</script>',
+               style: 'How-to',
+               content: `Bad image <img src="https://url.to.file.which/does-not.exist" onerror="alert(document.cookie);">. But not <strong>all</strong> bad.`
+            }
 
-       context(`Given an XSS attack article`, () => {
-         const maliciousArticle = {
-           id: 911,
-           title: 'Naughty naughty very naughty <script>alert("xss");</script>',
-           style: 'How-to',
-           content: `Bad image <img src="https://url.to.file.which/does-not.exist" onerror="alert(document.cookie);">. But not <strong>all</strong> bad.`
-         }
-    
-         beforeEach('insert malicious article', () => {
-           return db
-             .into('blogful_articles')
-             .insert([ maliciousArticle ])
+            beforeEach('insert malicious article', () => {
+               return db.into('blogful_articles').insert([maliciousArticle])
+            })
+
+            it('removes XSS attack content', () => {
+               return supertest(app)
+                  .get(`/articles/${maliciousArticle.id}`)
+                  .expect(200)
+                  .expect(res => {
+                     expect(res.body.title).to.eql(
+                        'Naughty naughty very naughty &lt;script&gt;alert("xss");&lt;/script&gt;'
+                     )
+                     expect(res.body.content).to.eql(
+                        `Bad image <img src="https://url.to.file.which/does-not.exist">. But not <strong>all</strong> bad.`
+                     )
+                  })
+            })
          })
-    
-         it('removes XSS attack content', () => {
-        return supertest(app)
-             .get(`/articles/${maliciousArticle.id}`)
-             .expect(200)
-             .expect(res => {
-               expect(res.body.title).to.eql('Naughty naughty very naughty &lt;script&gt;alert(\"xss\");&lt;/script&gt;')
-               expect(res.body.content).to.eql(`Bad image <img src="https://url.to.file.which/does-not.exist">. But not <strong>all</strong> bad.`)
-             })
-         })
-       })
       })
 
       context('Given there are articles in the database', () => {
@@ -146,6 +148,40 @@ describe('Articles Endpoints', function() {
                .expect(400, {
                   error: { message: `Missing '${field}' in request body` }
                })
+         })
+      })
+   })
+
+   describe.only(`DELETE /articles/id`, () => {
+      context(`Given no articles`, () => {
+         it(`responds with 404`, () => {
+            const articleId = 123456
+            return supertest(app)
+               .delete(`/articles/${articleId}`)
+               .expect(404, { error: { message: `Article doesn't exist` } })
+         })
+      })
+
+      context('Given there are articles in DB', () => {
+         const testArticles = makeArticlesArray()
+
+         beforeEach('insert articles', () => {
+            return db.into('blogful_articles').insert(testArticles)
+         })
+
+         it('responds with 204 and deletes article', () => {
+            const idToRemove = 2
+            const expectedArticles = testArticles.filter(
+               article => article.id !== idToRemove
+            )
+            return supertest(app)
+               .delete(`/articles/${idToRemove}`)
+               .expect(204)
+               .then(res =>
+                  supertest(app)
+                     .get(`/articles`)
+                     .expect(expectedArticles)
+               )
          })
       })
    })
